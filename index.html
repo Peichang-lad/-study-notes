@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>408 x 数学 x 英语学习笔记</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- highlight.js 代码高亮 -->
+  <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <!-- marked.js Markdown 渲染 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.1/marked.min.js"></script>
+  <!-- MathJax v3 LaTeX 公式渲染 -->
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$']],
+        displayMath: [['$$', '$$']],
+        processEscapes: true
+      },
+      options: {
+        processHtmlClass: 'markdown-body'
+      }
+    };
+  </script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
+<body>
+
+  <!-- ==================== 导航栏 ==================== -->
+  <nav class="navbar" id="navbar">
+    <div class="nav-inner">
+      <a class="nav-brand" href="#">408 x 数学 x 英语</a>
+
+      <!-- 汉堡菜单按钮（移动端） -->
+      <button class="hamburger" id="hamburger" aria-label="菜单">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+
+      <!-- 搜索框（桌面端） -->
+      <div class="nav-search" id="navSearchDesktop">
+        <input type="text" id="searchInputDesktop" placeholder="搜索文章..." aria-label="搜索">
+      </div>
+
+      <ul class="nav-menu" id="navMenu">
+        <!-- 408笔记 -->
+        <li class="nav-item has-dropdown">
+          <span class="nav-link">408笔记</span>
+          <ul class="dropdown">
+            <li><a href="#" data-filter="操作系统">操作系统</a></li>
+            <li><a href="#" data-filter="计算机网络">计算机网络</a></li>
+            <li><a href="#" data-filter="数据结构">数据结构</a></li>
+            <li><a href="#" data-filter="组成原理">组成原理</a></li>
+          </ul>
+        </li>
+        <!-- GIS开发 -->
+        <li class="nav-item has-dropdown">
+          <span class="nav-link">GIS开发</span>
+          <ul class="dropdown">
+            <li><a href="#" data-filter="ArcGIS">ArcGIS</a></li>
+            <li><a href="#" data-filter="GEE">Google Earth Engine</a></li>
+            <li><a href="#" data-filter="ENVI">ENVI</a></li>
+            <li><a href="#" data-filter="Python">Python</a></li>
+          </ul>
+        </li>
+        <li class="nav-item"><a class="nav-link" href="#" data-filter="遥感">遥感</a></li>
+        <li class="nav-item"><a class="nav-link" href="#" data-filter="数学">数学</a></li>
+        <li class="nav-item"><a class="nav-link" href="#" data-filter="编程">编程</a></li>
+        <li class="nav-item"><a class="nav-link" href="#" data-filter="踩坑记录">踩坑记录</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- ==================== 文章专属微型导航栏（阅读时切换显示） ==================== -->
+  <nav class="article-navbar" id="articleNavbar" style="display: none;">
+    <div class="nav-inner">
+      <button class="nav-back-btn" id="navBackBtn">← 返回</button>
+
+      <span class="nav-article-title" id="navArticleTitle">文章标题</span>
+
+      <div class="nav-controls">
+        <span class="progress-text" id="progressText">0%</span>
+
+        <div class="font-ctrl">
+          <button id="btnFontDec" title="缩小字体">A-</button>
+          <button id="btnFontInc" title="放大字体">A+</button>
+        </div>
+
+        <select id="themeSelect" class="theme-select" title="切换背景">
+          <option value="default">默认白</option>
+          <option value="eye-care">护眼绿</option>
+          <option value="parchment">羊皮纸</option>
+          <option value="dark">深夜黑</option>
+        </select>
+      </div>
+
+      <div class="nav-reading-progress-container">
+        <div class="nav-reading-progress" id="readingProgress"></div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ==================== 主布局 ==================== -->
+  <div class="main-layout">
+
+    <!-- 左侧：文章列表 -->
+    <main class="content" id="content">
+
+      <!-- 搜索框（移动端） -->
+      <div class="nav-search mobile-search" id="navSearchMobile">
+        <input type="text" id="searchInputMobile" placeholder="搜索文章..." aria-label="搜索">
+      </div>
+
+      <!-- 快捷筛选标签 -->
+      <div class="quick-filters" id="quickFilters">
+        <button class="filter-tag active" data-filter="全部">全部</button>
+        <button class="filter-tag" data-filter="操作系统">操作系统</button>
+        <button class="filter-tag" data-filter="计算机网络">计算机网络</button>
+        <button class="filter-tag" data-filter="数据结构">数据结构</button>
+        <button class="filter-tag" data-filter="组成原理">组成原理</button>
+        <button class="filter-tag" data-filter="数学">数学</button>
+        <button class="filter-tag" data-filter="C++">C++</button>
+        <button class="filter-tag" data-filter="Python">Python</button>
+      </div>
+
+      <!-- 继续阅读 -->
+      <div id="lrContinueContainer"></div>
+
+      <!-- 学习统计面板 -->
+      <div id="lrHomeStatsContainer"></div>
+
+      <!-- 当前筛选提示 -->
+      <div class="filter-indicator" id="filterIndicator"></div>
+
+      <!-- 文章列表容器 -->
+      <div class="article-list" id="articleList"></div>
+
+      <!-- 加载更多 -->
+      <button class="load-more" id="loadMore" style="display:none;">加载更多</button>
+
+      <!-- 无结果提示 -->
+      <div class="no-results" id="noResults" style="display:none;">
+        没有找到匹配的文章
+      </div>
+
+      <!-- 学习排行榜 -->
+      <div id="lrLeaderboardContainer"></div>
+
+    </main>
+
+    <!-- 右侧：侧边栏 -->
+    <aside class="sidebar" id="sidebar">
+      <!-- 个人简介 -->
+      <div class="sidebar-card">
+        <div class="profile">
+          <img src="assets/linchengming.png" alt="头像" class="avatar" width="80" height="80">
+          <h3>LinChengMing</h3>
+          <p>408 考研党 / 数学 / 英语</p>
+          <p class="profile-desc">记录 408 计算机基础、考研数学与英语的学习过程。</p>
+        </div>
+      </div>
+
+      <!-- 学习日历 -->
+      <div id="lrCalendarContainer"></div>
+
+      <!-- 文章统计 -->
+      <div class="sidebar-card">
+        <h4>文章统计</h4>
+        <p id="totalCount">共 0 篇文章</p>
+      </div>
+
+      <!-- 分类统计 -->
+      <div class="sidebar-card">
+        <h4>📁 文章分类</h4>
+        <ul class="category-list" id="categoryList"></ul>
+      </div>
+
+      <!-- 标签云 -->
+      <div class="sidebar-card">
+        <h4>标签云</h4>
+        <div class="tag-cloud" id="tagCloud"></div>
+      </div>
+
+      <!-- 最近更新 -->
+      <div class="sidebar-card">
+        <h4>最近更新</h4>
+        <ul class="recent-posts" id="recentPosts"></ul>
+      </div>
+
+      <!-- 学习侧边栏（今日学习 + 最近学习） -->
+      <div id="lrSidebarContainer"></div>
+
+    </aside>
+  </div>
+
+  <!-- ==================== 页脚 ==================== -->
+  <footer class="footer">
+    <p>2026 408 x 数学 x 英语学习笔记</p>
+    <p>Powered by HTML + JavaScript</p>
+    <!-- 导出/导入学习记录 -->
+    <div id="lrExportImport"></div>
+  </footer>
+
+  <!-- ==================== 文章阅读弹窗 ==================== -->
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal" id="modal">
+      <button class="modal-close" id="modalClose" aria-label="返回">← 返回文章列表</button>
+
+      <div class="modal-body-layout">
+        <aside class="modal-sidebar" id="modalSidebar">
+          <div class="modal-toc-section" id="modalTocSection" style="display: none;">
+            <div class="modal-sidebar-title">📋 本篇大纲目录</div>
+            <ul class="modal-toc-list" id="modalTocList"></ul>
+          </div>
+
+          <div class="modal-sidebar-title">📁 全部分类目录</div>
+          <ul class="modal-category-list" id="modalCategoryList"></ul>
+        </aside>
+
+        <article class="modal-content" id="modalContent"></article>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 脚本加载 ==================== -->
+  <script src="learning.js?v=6"></script>
+  <script src="script.js?v=12"></script>
+</body>
+</html>
