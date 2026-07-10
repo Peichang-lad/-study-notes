@@ -53,8 +53,33 @@
     recentPosts:      $("#recentPosts")
   };
 
+  // ===================== 启动封面控制 =====================
+  function initSplash() {
+    var splash = document.getElementById("splashScreen");
+    if (!splash) return;
+
+    // 同一会话只显示一次
+    if (sessionStorage.getItem("splash_done")) {
+      splash.style.display = "none";
+      return;
+    }
+
+    function hideSplash() {
+      splash.classList.add("hidden");
+      sessionStorage.setItem("splash_done", "1");
+      // 动画结束后移除 DOM
+      setTimeout(function () {
+        if (splash.parentNode) splash.style.display = "none";
+      }, 900);
+    }
+
+    document.getElementById("splashEnter").addEventListener("click", hideSplash);
+    document.getElementById("splashSkip").addEventListener("click", hideSplash);
+  }
+
   // ===================== 初始化 =====================
   async function init() {
+    initSplash();
     try {
       const resp = await fetch("posts.json");
       if (!resp.ok) throw new Error("posts.json 加载失败");

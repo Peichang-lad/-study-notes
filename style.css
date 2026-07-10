@@ -56,6 +56,152 @@ body {
   min-height: 100vh;
 }
 
+/* ================================================================
+   启动封面 (Splash Screen)
+   ================================================================ */
+
+#splashScreen {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.8s ease-out, visibility 0.8s ease-out;
+}
+
+#splashScreen.hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* 背景图层 */
+.splash-bg {
+  position: absolute;
+  inset: 0;
+  background-image: var(--bg-image);
+  background-size: cover;
+  background-position: center;
+  filter: brightness(0.35) saturate(0.9);
+}
+
+/* 暗色遮罩 */
+.splash-overlay {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% 45%, rgba(30, 40, 70, 0.5) 0%, rgba(15, 20, 40, 0.85) 100%);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* 文字内容区 */
+.splash-inner {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  color: #fff;
+  animation: splashFadeUp 0.8s ease-out;
+}
+
+@keyframes splashFadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* 装饰线 */
+.splash-line {
+  width: 48px;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.5);
+  margin: 0 auto 24px;
+  box-shadow: 0 0 8px rgba(180, 200, 240, 0.4);
+}
+
+/* 副标题 */
+.splash-subtitle {
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 16px;
+  font-weight: 300;
+}
+
+/* 主标题 */
+.splash-title {
+  font-size: 36px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  margin-bottom: 12px;
+  text-shadow: 0 2px 20px rgba(0, 0, 0, 0.5);
+}
+
+/* 描述 */
+.splash-desc {
+  font-size: 15px;
+  color: rgba(255, 255, 255, 0.75);
+  margin-bottom: 8px;
+  font-weight: 300;
+  letter-spacing: 0.04em;
+}
+
+/* 引用语 */
+.splash-quote {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.45);
+  margin-bottom: 40px;
+  font-style: italic;
+  letter-spacing: 0.06em;
+}
+
+/* 进入按钮 */
+.splash-enter {
+  display: inline-block;
+  padding: 10px 48px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-size: 15px;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  letter-spacing: 0.12em;
+  transition: all 0.3s;
+  margin-bottom: 14px;
+}
+
+.splash-enter:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.6);
+  transform: translateY(-1px);
+}
+
+/* 跳过链接 */
+.splash-skip {
+  display: block;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.35);
+  cursor: pointer;
+  letter-spacing: 0.08em;
+  transition: color 0.3s;
+}
+
+.splash-skip:hover {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+  .splash-title {
+    font-size: 26px;
+  }
+  .splash-desc {
+    font-size: 13px;
+  }
+}
+
 a {
   color: var(--primary);
   text-decoration: none;
