@@ -1,0 +1,197 @@
+
+<style>
+  .algo-btn { padding: 6px 14px; border-radius: 6px; border: 1.5px solid var(--border-strong); background: var(--surface-1); color: var(--text-primary); cursor: pointer; font-size: 13px; transition: all .15s; }
+  .algo-btn.active { background: var(--bg-accent); border-color: var(--border-accent); color: var(--text-accent); font-weight: 500; }
+  .algo-btn:hover:not(.active) { border-color: var(--border-stronger); }
+  .mem-block { display: flex; align-items: center; justify-content: center; border-radius: 6px; font-size: 13px; font-weight: 500; transition: all .4s; border: 1.5px solid transparent; }
+  .mem-free { background: var(--surface-1); border-color: var(--border-strong); color: var(--text-secondary); }
+  .mem-os   { background: var(--bg-warning); border-color: var(--border-warning); color: var(--text-warning); }
+  .mem-used { background: var(--bg-accent); border-color: var(--border-accent); color: var(--text-accent); }
+  .mem-new  { background: var(--bg-success); border-color: var(--border-success); color: var(--text-success); }
+  .mem-scan { outline: 2.5px solid var(--border-warning); outline-offset: 1px; }
+  .mem-pick { outline: 2.5px solid var(--border-success); outline-offset: 1px; }
+  .badge { display:inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; }
+  .step-dot { width:8px;height:8px;border-radius:50%;background:var(--border-strong);display:inline-block;margin:0 3px;transition:background .2s; }
+  .step-dot.on { background:var(--text-accent); }
+</style>
+
+<div style="padding: 12px 0 0">
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+    <button class="algo-btn active" onclick="setAlgo('first')">首次适应</button>
+    <button class="algo-btn" onclick="setAlgo('best')">最佳适应</button>
+    <button class="algo-btn" onclick="setAlgo('worst')">最坏适应</button>
+    <button class="algo-btn" onclick="setAlgo('next')">临近适应</button>
+  </div>
+
+  <div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap">
+    <!-- Memory column -->
+    <div style="flex:1;min-width:180px">
+      <div style="font-size:12px;color:var(--text-secondary);margin-bottom:6px">内存空闲区（地址从低到高）</div>
+      <div id="mem-vis" style="display:flex;flex-direction:column;gap:4px"></div>
+      <div style="margin-top:10px;font-size:12px;color:var(--text-muted)">
+        <span class="badge" style="background:var(--bg-success);color:var(--text-success)">绿色</span> 本次分配
+        <span class="badge" style="background:var(--bg-accent);color:var(--text-accent);margin-left:6px">蓝色</span> 已占用
+        <span class="badge" style="background:var(--surface-1);color:var(--text-secondary);border:1px solid var(--border-strong);margin-left:6px">白色</span> 空闲
+      </div>
+    </div>
+
+    <!-- Step panel -->
+    <div style="flex:2;min-width:240px">
+      <div style="font-size:12px;color:var(--text-secondary);margin-bottom:6px">申请大小：<strong id="req-size" style="color:var(--text-primary)">100KB</strong></div>
+      <div id="algo-desc" style="background:var(--surface-1);border:1px solid var(--border);border-radius:8px;padding:12px;font-size:13px;color:var(--text-primary);line-height:1.7;min-height:90px"></div>
+
+      <div style="margin-top:14px">
+        <div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px">扫描过程</div>
+        <div id="scan-log" style="font-size:12px;color:var(--text-secondary);line-height:2;min-height:60px"></div>
+      </div>
+
+      <div style="margin-top:14px;display:flex;gap:8px;align-items:center">
+        <button class="algo-btn" onclick="prevStep()" id="btn-prev" style="min-width:64px">← 上一步</button>
+        <button class="algo-btn active" onclick="nextStep()" id="btn-next" style="min-width:64px">下一步 →</button>
+        <button class="algo-btn" onclick="reset()" style="min-width:64px">重置</button>
+      </div>
+      <div id="step-dots" style="margin-top:10px"></div>
+    </div>
+  </div>
+
+  <!-- Summary table -->
+  <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:14px">
+    <div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px">当前算法特点</div>
+    <div id="summary-box" style="background:var(--surface-1);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:13px;color:var(--text-primary);line-height:1.8"></div>
+  </div>
+</div>
+
+<script>
+const REQUEST = 100;
+const BASE_BLOCKS = [
+  { id:'os',   label:'操作系统', size:80,  type:'os',   addr:0   },
+  { id:'p1',   label:'进程1',    size:120, type:'used', addr:80  },
+  { id:'f1',   label:'空闲 80KB',  size:80,  type:'free', addr:200, freeKB:80  },
+  { id:'p2',   label:'进程2',    size:100, type:'used', addr:280 },
+  { id:'f2',   label:'空闲 200KB', size:200, type:'free', addr:380, freeKB:200 },
+  { id:'p3',   label:'进程3',    size:60,  type:'used', addr:580 },
+  { id:'f3',   label:'空闲 120KB', size:120, type:'free', addr:640, freeKB:120 },
+  { id:'p4',   label:'进程4',    size:80,  type:'used', addr:760 },
+  { id:'f4',   label:'空闲 50KB',  size:50,  type:'free', addr:840, freeKB:50  },
+];
+const FREE_BLOCKS = BASE_BLOCKS.filter(b=>b.type==='free');
+
+const ALGOS = {
+  first: {
+    name:'首次适应',
+    desc:'从地址最低的空闲区开始，找到第一个能装下的就分配。',
+    order: ()=>[...FREE_BLOCKS],
+    summary:'<b>搜索顺序</b>：低地址 → 高地址，找到即停<br><b>优点</b>：简单快速，尽量保留高地址大空闲区<br><b>缺点</b>：低地址碎片多，每次都从头扫描<br><b>空闲区排列</b>：按地址递增排列',
+  },
+  best: {
+    name:'最佳适应',
+    desc:'遍历所有空闲区，找到能装下且最小的那块分配，最大限度地减少浪费。',
+    order: ()=>[...FREE_BLOCKS].sort((a,b)=>a.freeKB-b.freeKB),
+    summary:'<b>搜索顺序</b>：按容量从小到大排列，找第一个能装下的<br><b>优点</b>：最节省空间，尽量不拆大块<br><b>缺点</b>：产生大量极小碎片（用完后剩余空间太小）<br><b>空闲区排列</b>：按容量递增排列',
+  },
+  worst: {
+    name:'最坏适应',
+    desc:'遍历所有空闲区，找到最大的那块分配，分割后剩余部分仍然较大。',
+    order: ()=>[...FREE_BLOCKS].sort((a,b)=>b.freeKB-a.freeKB),
+    summary:'<b>搜索顺序</b>：按容量从大到小排列，找第一个能装下的<br><b>优点</b>：分割后剩余空间较大，还能继续使用<br><b>缺点</b>：大空闲区很快被消耗，不利于大进程<br><b>空闲区排列</b>：按容量递减排列',
+  },
+  next: {
+    name:'临近适应（循环首次适应）',
+    desc:'记住上次分配的位置，下次从该位置继续向后搜索，找到第一个能装下的就分配。',
+    order: ()=>{
+      const rotated = [...FREE_BLOCKS];
+      const idx = nextPointer % rotated.length;
+      return [...rotated.slice(idx), ...rotated.slice(0, idx)];
+    },
+    summary:'<b>搜索顺序</b>：从上次分配位置继续，不从头扫描<br><b>优点</b>：避免低地址碎片集中，分配更均匀<br><b>缺点</b>：高地址大块也会被拆散，可能影响大进程<br><b>空闲区排列</b>：按地址循环排列',
+  },
+};
+
+let algo = 'first';
+let step = 0;
+let nextPointer = 0;
+let scanOrder = [];
+let totalSteps = 0;
+
+function setAlgo(a) {
+  algo = a;
+  document.querySelectorAll('.algo-btn').forEach(b=>{
+    b.classList.toggle('active', b.textContent.trim().startsWith(ALGOS[a].name.slice(0,2)));
+  });
+  reset();
+}
+
+function buildScanOrder() {
+  return ALGOS[algo].order();
+}
+
+function reset() {
+  step = 0;
+  scanOrder = buildScanOrder();
+  totalSteps = scanOrder.length + 1;
+  render();
+}
+
+function nextStep() {
+  if (step < totalSteps - 1) { step++; render(); }
+}
+function prevStep() {
+  if (step > 0) { step--; render(); }
+}
+
+function render() {
+  const info = ALGOS[algo];
+  const scanSoFar = scanOrder.slice(0, step);
+  const eligible = scanOrder.filter(b=>b.freeKB >= REQUEST);
+  const chosen = eligible[0];
+  const pickedSoFar = step > 0 && chosen && scanSoFar.find(b=>b.id===chosen.id);
+
+  // Memory vis
+  const vis = document.getElementById('mem-vis');
+  vis.innerHTML = '';
+  BASE_BLOCKS.forEach(b=>{
+    const isScanned = b.type==='free' && scanSoFar.find(x=>x.id===b.id);
+    const isPicked = pickedSoFar && b.id===chosen.id;
+    let cls = 'mem-block mem-'+b.type;
+    if (isPicked) cls = 'mem-block mem-new';
+    const h = Math.max(28, Math.round(b.size * 0.22));
+    const extra = isScanned && !isPicked ? ' mem-scan' : (isPicked ? ' mem-pick' : '');
+    const lbl = isPicked ? `${REQUEST}KB (已分配)` : b.label;
+    vis.innerHTML += `<div class="${cls}${extra}" style="height:${h}px">${lbl}</div>`;
+  });
+
+  // Algo description
+  document.getElementById('algo-desc').innerHTML = `<b>${info.name}</b>：${info.desc}`;
+  document.getElementById('req-size').textContent = `${REQUEST}KB`;
+
+  // Scan log
+  let log = '';
+  scanOrder.forEach((b, i)=>{
+    const checked = i < step;
+    const ok = b.freeKB >= REQUEST;
+    const isWinner = chosen && b.id===chosen.id && checked;
+    if (checked) {
+      const icon = isWinner ? '✓ 选中' : (ok ? '跳过（更优先块在后）' : '太小，跳过');
+      const col = isWinner ? 'var(--text-success)' : 'var(--text-muted)';
+      log += `<span style="color:${col}">扫描 ${b.label}（${b.freeKB}KB）→ ${icon}</span><br>`;
+    } else {
+      log += `<span style="color:var(--border-strong)">扫描 ${b.label}（${b.freeKB}KB）</span><br>`;
+    }
+  });
+  if (step === 0) log = '<span style="color:var(--text-muted)">点击「下一步」开始扫描...</span>';
+  document.getElementById('scan-log').innerHTML = log;
+
+  // Summary
+  document.getElementById('summary-box').innerHTML = info.summary;
+
+  // Dots
+  let dots = '';
+  for (let i=0;i<totalSteps;i++) dots += `<span class="step-dot${i===step?' on':''}"></span>`;
+  document.getElementById('step-dots').innerHTML = dots;
+
+  document.getElementById('btn-prev').disabled = step===0;
+  document.getElementById('btn-next').disabled = step===totalSteps-1;
+}
+
+reset();
+</script>

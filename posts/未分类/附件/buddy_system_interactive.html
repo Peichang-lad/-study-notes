@@ -1,0 +1,177 @@
+
+<style>
+  .buddy-btn { padding:5px 12px; border-radius:6px; border:1.5px solid var(--border-strong); background:var(--surface-1); color:var(--text-primary); cursor:pointer; font-size:12px; margin:2px; transition:all .15s; }
+  .buddy-btn:hover { border-color:var(--border-stronger); }
+  .buddy-btn.primary { background:var(--bg-accent); border-color:var(--border-accent); color:var(--text-accent); }
+  .buddy-btn.success { background:var(--bg-success); border-color:var(--border-success); color:var(--text-success); }
+  .buddy-btn.danger  { background:var(--bg-error); border-color:var(--border-error); color:var(--text-error); }
+</style>
+
+<div style="padding:10px 0 0">
+  <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start">
+
+    <!-- Memory visual -->
+    <div style="flex:2;min-width:260px">
+      <div style="font-size:12px;color:var(--text-secondary);margin-bottom:6px">内存状态（总大小 64KB）</div>
+      <div id="mem-display" style="display:flex;height:56px;border-radius:6px;overflow:hidden;border:1.5px solid var(--border-strong)"></div>
+      <div style="display:flex;height:20px;margin-top:2px" id="addr-display"></div>
+
+      <div style="margin-top:14px;font-size:12px;color:var(--text-secondary);margin-bottom:6px">各阶空闲链表（2ⁿ KB）</div>
+      <div id="free-lists" style="display:flex;flex-direction:column;gap:3px"></div>
+    </div>
+
+    <!-- Controls -->
+    <div style="flex:1;min-width:180px">
+      <div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px">申请内存</div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:12px">
+        <button class="buddy-btn primary" onclick="alloc(8)">申请 8KB</button>
+        <button class="buddy-btn primary" onclick="alloc(16)">申请 16KB</button>
+        <button class="buddy-btn primary" onclick="alloc(4)">申请 4KB</button>
+      </div>
+
+      <div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px">释放内存</div>
+      <div id="free-btns" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:12px"></div>
+
+      <div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px">操作日志</div>
+      <div id="log-box" style="background:var(--surface-1);border:1px solid var(--border);border-radius:6px;padding:8px;font-size:11px;color:var(--text-secondary);height:130px;overflow-y:auto;line-height:1.8"></div>
+      <button class="buddy-btn" onclick="resetAll()" style="margin-top:8px;width:100%">重置</button>
+    </div>
+  </div>
+
+  <!-- Key rules -->
+  <div style="margin-top:14px;background:var(--surface-1);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--text-secondary);line-height:1.9">
+    <span style="color:var(--text-primary);font-weight:500">伙伴系统规则：</span>
+    分配时找 ≥ 申请大小的最小2次幂块 → 若块太大则对半拆分（产生两个伙伴）→ 取一半分配，另一半入空闲链表<br>
+    释放时检查<span style="color:var(--text-accent);font-weight:500">伙伴块</span>是否也空闲 → 若是则合并为更大块 → 递归向上合并
+  </div>
+</div>
+
+<script>
+// Memory represented as array of blocks {start, size, free, label}
+// Total: 64KB, unit: KB
+const TOTAL = 64;
+let blocks = [];
+let allocId = 0;
+let logs = [];
+
+function log(msg) {
+  logs.push(msg);
+  const box = document.getElementById('log-box');
+  box.innerHTML = logs.slice(-20).map(l=>`<div>${l}</div>`).join('');
+  box.scrollTop = box.scrollHeight;
+}
+
+function resetAll() {
+  blocks = [{ start:0, size:TOTAL, free:true, label:'' }];
+  logs = [];
+  allocId = 0;
+  log('系统初始化：64KB 全部空闲');
+  render();
+}
+
+function nextPow2(n) {
+  let p = 1;
+  while (p < n) p <<= 1;
+  return p;
+}
+
+function alloc(reqKB) {
+  const need = nextPow2(reqKB);
+  // Find smallest free block >= need
+  let idx = -1, minSize = Infinity;
+  blocks.forEach((b,i) => {
+    if (b.free && b.size >= need && b.size < minSize) { minSize = b.size; idx = i; }
+  });
+  if (idx === -1) { log(`❌ 申请 ${reqKB}KB 失败：无合适空闲块`); return; }
+
+  // Split until size == need
+  while (blocks[idx].size > need) {
+    const b = blocks[idx];
+    const half = b.size / 2;
+    blocks.splice(idx, 1,
+      { start: b.start,        size: half, free: true, label: '' },
+      { start: b.start + half, size: half, free: true, label: '' }
+    );
+    log(`  拆分 ${b.size}KB → 两个 ${half}KB 伙伴`);
+  }
+
+  const id = ++allocId;
+  blocks[idx].free  = false;
+  blocks[idx].label = `P${id}(${reqKB}KB)`;
+  log(`✅ 分配 ${reqKB}KB → P${id}，使用块大小 ${need}KB，起址 ${blocks[idx].start}KB`);
+  render();
+}
+
+function free(idx) {
+  const b = blocks[idx];
+  const lbl = b.label;
+  b.free = true; b.label = '';
+  log(`🔓 释放 ${lbl}，起址 ${b.start}KB`);
+  // Merge buddies
+  let merged = true;
+  while (merged) {
+    merged = false;
+    for (let i = 0; i < blocks.length - 1; i++) {
+      const a = blocks[i], b2 = blocks[i+1];
+      if (a.free && b2.free && a.size === b2.size && a.start + a.size === b2.start) {
+        // Check they are buddies (start aligned to 2*size)
+        if (a.start % (a.size * 2) === 0) {
+          log(`  合并 ${a.start}KB + ${b2.start}KB → ${a.size*2}KB 块`);
+          blocks.splice(i, 2, { start: a.start, size: a.size * 2, free: true, label: '' });
+          merged = true; break;
+        }
+      }
+    }
+  }
+  render();
+}
+
+const COLORS = ['var(--bg-accent)','var(--bg-success)','var(--bg-warning)','var(--bg-error)',
+                 'var(--bg-teal,#d0f0ea)'];
+const BCOLORS= ['var(--border-accent)','var(--border-success)','var(--border-warning)','var(--border-error)','var(--border-teal,#0F6E56)'];
+const allocColors = {};
+
+function render() {
+  // Memory bar
+  const memDiv = document.getElementById('mem-display');
+  const addrDiv = document.getElementById('addr-display');
+  memDiv.innerHTML = ''; addrDiv.innerHTML = '';
+  blocks.forEach((b,i) => {
+    const pct = (b.size / TOTAL * 100).toFixed(1);
+    if (!b.free && !allocColors[b.label]) {
+      const ci = Object.keys(allocColors).length % COLORS.length;
+      allocColors[b.label] = { bg: COLORS[ci], border: BCOLORS[ci] };
+    }
+    const col = b.free
+      ? { bg:'var(--surface-1)', border:'var(--border)' }
+      : allocColors[b.label];
+    memDiv.innerHTML += `<div style="width:${pct}%;background:${col.bg};border-right:1px solid ${col.border};display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--text-secondary);overflow:hidden;white-space:nowrap" title="${b.free?'空闲':b.label} ${b.size}KB">${b.free?`空 ${b.size}K`:b.label}</div>`;
+    addrDiv.innerHTML += `<div style="width:${pct}%;font-size:9px;color:var(--text-muted);text-align:left;overflow:hidden">${b.start}K</div>`;
+  });
+
+  // Free lists
+  const freeLists = {};
+  blocks.forEach(b => { if (b.free) { if (!freeLists[b.size]) freeLists[b.size]=[]; freeLists[b.size].push(b.start); } });
+  const fl = document.getElementById('free-lists');
+  fl.innerHTML = '';
+  [4,8,16,32,64].forEach(sz => {
+    const items = freeLists[sz] || [];
+    fl.innerHTML += `<div style="display:flex;align-items:center;gap:6px;font-size:12px">
+      <span style="min-width:52px;color:var(--text-muted)">${sz}KB：</span>
+      ${items.length ? items.map(s=>`<span style="background:var(--surface-1);border:1px solid var(--border);border-radius:4px;padding:1px 7px;color:var(--text-secondary)">${s}K</span>`).join(' → ') : '<span style="color:var(--text-muted);font-size:11px">（空）</span>'}
+    </div>`;
+  });
+
+  // Free buttons
+  const fb = document.getElementById('free-btns');
+  fb.innerHTML = '';
+  blocks.forEach((b,i) => {
+    if (!b.free) {
+      fb.innerHTML += `<button class="buddy-btn danger" onclick="free(${i})">释放 ${b.label}</button>`;
+    }
+  });
+  if (!blocks.some(b=>!b.free)) fb.innerHTML = '<span style="font-size:11px;color:var(--text-muted)">暂无已分配块</span>';
+}
+
+resetAll();
+</script>
